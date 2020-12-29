@@ -1,3 +1,23 @@
+#if (TestCrud || TestUpdate)
+#define CreateEnabled
+#define AskEnabled
+#define AddEnabled
+#define UpdateEnabled
+#define CleanupEnabled
+#elif (TestCreate)
+#define CreateEnabled
+#define CleanupEnabled
+#elif (TestAsk)
+#define CreateEnabled
+#define AskEnabled
+#define CleanupEnabled
+#elif (TestAdd)
+#define CreateEnabled
+#define AskEnabled
+#define AddEnabled
+#define CleanupEnabled
+#endif
+
 using System;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -15,6 +35,7 @@ namespace AAI
         {
             service = new QnAService();
         }
+#if (CreateEnabled)
         //
         // Create QnA knowledge base.
         // Will contain one Question and Answer, the answer has temporary text that will be removed in the update test.
@@ -31,9 +52,18 @@ namespace AAI
             Assert.AreEqual(OperationStateType.Succeeded, status);
             Assert.IsNotNull(id);
             service.KnowledgeBaseID = id;
-
-            // Question has unwanted text in it. Check for the unwanted text.
-            QnASearchResultList answer = await service.Ask("HOW CAN I CHANGE MY SHIPPING ADDRESS", false);
+            return true;
+        }
+#endif
+#if (AskEnabled)
+        //
+        // Create QnA knowledge base.
+        // Will contain one Question and Answer, the answer has temporary text that will be removed in the update test.
+        private async Task<bool> AskQuestion()
+        {
+            // Question has unwanted text in it. Check for the unwanted text. Also question should
+            // only return 1 match. The other Answer added should never match this question.
+            QnASearchResultList answer = await service.Ask("HOW CAN I CHANGE MY SHIPPING ADDRESS?", false);
             Assert.IsNotNull(answer);
             Assert.IsNotNull(answer.Answers);
             Assert.AreEqual(1, answer.Answers.Count);
@@ -42,6 +72,8 @@ namespace AAI
             bool found = answer.Answers[0].Questions[0].Contains("##REPLACE##");
             return found;
         }
+#endif
+#if (AddEnabled && AskEnabled)
         //
         // Add an additional Question and Answer, the answer has temporary text that will be removed in the update test.
         private async Task<bool> AddQuestion()
@@ -61,6 +93,8 @@ namespace AAI
             bool found = answer.Answers[0].Questions[0].Contains("##REPLACE##");
             return found;
         }
+#endif
+#if (UpdateEnabled && AskEnabled)
         //
         // Update the existing two quesions to remove temporary text. 
         private async Task<bool> UpdateQuestions()
@@ -89,7 +123,9 @@ namespace AAI
 
             return question1 && question2;
         }
-        //
+#endif
+#if (AddEnabled && AskEnabled)
+//
         // Add full text, will add additional questions to the first two entries.
         private async Task<bool> AddFullText()
         {
@@ -108,7 +144,8 @@ namespace AAI
             bool found = answer.Answers[0].Answer.Contains("Because you are important to us");
             return found;
         }
-        
+#endif
+#if (TrainingEnabled && AskEnabled)   
         private async Task<bool> TrainQnA()
         {
             string sampleQuestion = "This present is for my mother, how do I get it to her?";
@@ -130,19 +167,97 @@ namespace AAI
 
             return (String.Compare(answer1, answer2) != 0) || (score2 > score1);
         }
+#endif
+#if (CleanupEnabled)
         private async Task<bool> CleanUp()
         {
             await service.DeleteKnowledgeBase();
             return true;
         }
-
-#if TestCrud
+#endif
+        
+#if (TestCreate)
+        [TestMethod()]
+        public void TestCreate()
+        {
+            try
+            {
+                Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
+            }   
+            finally
+            {
+                if (service.KnowledgeBaseID != null && service.KnowledgeBaseID.Length > 0)
+                {
+                    Task.Run(async () => { Assert.IsTrue(await CleanUp()); }).Wait();
+                }
+            }
+        }     
+#endif
+#if (TestAsk)
+        [TestMethod()]
+        public void TestCreate()
+        {
+            try
+            {
+                Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AskQuestion()); }).Wait();
+            }   
+            finally
+            {
+                if (service.KnowledgeBaseID != null && service.KnowledgeBaseID.Length > 0)
+                {
+                    Task.Run(async () => { Assert.IsTrue(await CleanUp()); }).Wait();
+                }
+            }
+        }     
+#endif
+#if (TestAdd)
+        [TestMethod()]
+        public void TestCreate()
+        {
+            try
+            {
+                Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AskQuestion()); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AddQuestion()); }).Wait();
+            }   
+            finally
+            {
+                if (service.KnowledgeBaseID != null && service.KnowledgeBaseID.Length > 0)
+                {
+                    Task.Run(async () => { Assert.IsTrue(await CleanUp()); }).Wait();
+                }
+            }
+        }     
+#endif
+#if (TestUpdate)
+        [TestMethod()]
+        public void TestCreate()
+        {
+            try
+            {
+                Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AskQuestion()); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AddQuestion()); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await UpdateQuestions()); }).Wait();
+            }   
+            finally
+            {
+                if (service.KnowledgeBaseID != null && service.KnowledgeBaseID.Length > 0)
+                {
+                    Task.Run(async () => { Assert.IsTrue(await CleanUp()); }).Wait();
+                }
+            }
+        }     
+#endif
+#if (TestCrud)
         [TestMethod()]
         public void CrudTest()
         {
             try
             {
                 Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AskQuestion()); }).Wait();
                 Task.Run(async () => { Assert.IsTrue(await AddQuestion()); }).Wait();
                 Task.Run(async () => { Assert.IsTrue(await UpdateQuestions()); }).Wait();
                 Task.Run(async () => { Assert.IsTrue(await AddFullText()); }).Wait();
@@ -158,59 +273,5 @@ namespace AAI
 
 #endif
 
-#if TestCreate
-        [TestMethod()]
-        public void TestCreate()
-        {
-            try
-            {
-                Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
-            }   
-            finally
-            {
-                if (service.KnowledgeBaseID != null && service.KnowledgeBaseID.Length > 0)
-                {
-                    Task.Run(async () => { Assert.IsTrue(await CleanUp()); }).Wait();
-                }
-            }
-        }     
-#endif
-#if TestAdd
-        [TestMethod()]
-        public void TestCreate()
-        {
-            try
-            {
-                Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await AddQuestion()); }).Wait();
-            }   
-            finally
-            {
-                if (service.KnowledgeBaseID != null && service.KnowledgeBaseID.Length > 0)
-                {
-                    Task.Run(async () => { Assert.IsTrue(await CleanUp()); }).Wait();
-                }
-            }
-        }     
-#endif
-#if TestUpdate
-        [TestMethod()]
-        public void TestCreate()
-        {
-            try
-            {
-                Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await AddQuestion()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await UpdateQuestions()); }).Wait();
-            }   
-            finally
-            {
-                if (service.KnowledgeBaseID != null && service.KnowledgeBaseID.Length > 0)
-                {
-                    Task.Run(async () => { Assert.IsTrue(await CleanUp()); }).Wait();
-                }
-            }
-        }     
-#endif
     }
 }
