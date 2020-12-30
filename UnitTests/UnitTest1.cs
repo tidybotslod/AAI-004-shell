@@ -3,19 +3,15 @@
 #define AskEnabled
 #define AddEnabled
 #define UpdateEnabled
-#define CleanupEnabled
 #elif (TestCreate)
 #define CreateEnabled
-#define CleanupEnabled
 #elif (TestAsk)
 #define CreateEnabled
 #define AskEnabled
-#define CleanupEnabled
 #elif (TestAdd)
 #define CreateEnabled
 #define AskEnabled
 #define AddEnabled
-#define CleanupEnabled
 #endif
 
 using System;
@@ -54,16 +50,30 @@ namespace AAI
             service.KnowledgeBaseID = id;
             return true;
         }
+        //
+        // Publish the QnA knowledge base.
+        private async Task<bool> PublishDatabase()
+        {
+            await service.Publish();
+            return true;
+        }
+        //
+        // Delete the data base
+        private async Task<bool> CleanUp()
+        {
+            await service.DeleteKnowledgeBase();
+            return true;
+        }
 #endif
 #if (AskEnabled)
         //
         // Create QnA knowledge base.
         // Will contain one Question and Answer, the answer has temporary text that will be removed in the update test.
-        private async Task<bool> AskQuestion()
+        private async Task<bool> AskQuestion(bool production)
         {
             // Question has unwanted text in it. Check for the unwanted text. Also question should
             // only return 1 match. The other Answer added should never match this question.
-            QnASearchResultList answer = await service.Ask("HOW CAN I CHANGE MY SHIPPING ADDRESS?", false);
+            QnASearchResultList answer = await service.Ask("HOW CAN I CHANGE MY SHIPPING ADDRESS?", production);
             Assert.IsNotNull(answer);
             Assert.IsNotNull(answer.Answers);
             Assert.AreEqual(1, answer.Answers.Count);
@@ -76,15 +86,18 @@ namespace AAI
 #if (AddEnabled && AskEnabled)
         //
         // Add an additional Question and Answer, the answer has temporary text that will be removed in the update test.
-        private async Task<bool> AddQuestion()
+        private async Task<bool> AddQuestion(bool production)
         {
-            var (status, error) = await service.AddToQnA(QnAFile.LoadCSV("..\\..\\..\\..\\Data\\add-faq.csv"), false);
+            var (status, error) = await service.AddToQnA(QnAFile.LoadCSV("..\\..\\..\\..\\Data\\add-faq.csv"));
             Assert.AreEqual(OperationStateType.Succeeded, status);
             Assert.IsNull(error);
-
+            if(production)
+            {
+                await service.Publish();
+            }
             // Question has unwanted text in it. Check for the unwanted text. Also question should
             // only return 1 match. The other Answer added should never match this question.
-            QnASearchResultList answer = await service.Ask("WHAT DO YOU MEAN BY POINTS", false);
+            QnASearchResultList answer = await service.Ask("WHAT DO YOU MEAN BY POINTS", production);
             Assert.IsNotNull(answer);
             Assert.IsNotNull(answer.Answers);
             Assert.AreEqual(1, answer.Answers.Count);
@@ -97,14 +110,17 @@ namespace AAI
 #if (UpdateEnabled && AskEnabled)
         //
         // Update the existing two quesions to remove temporary text. 
-        private async Task<bool> UpdateQuestions()
+        private async Task<bool> UpdateQuestions(bool production)
         {
-            var (status, error) = await service.UpdateQnA(QnAFile.LoadCSV("..\\..\\..\\..\\Data\\update-faq.csv"), false);
+            var (status, error) = await service.UpdateQnA(QnAFile.LoadCSV("..\\..\\..\\..\\Data\\update-faq.csv"));
             Assert.AreEqual(OperationStateType.Succeeded, status);
             Assert.IsNull(error);
-
+            if (production)
+            {
+                await service.Publish();
+            }
             // Bad text in question is removed.
-            QnASearchResultList answer = await service.Ask("WHAT DO YOU MEAN BY POINTS", false);
+            QnASearchResultList answer = await service.Ask("WHAT DO YOU MEAN BY POINTS", production);
             Assert.IsNotNull(answer);
             Assert.IsNotNull(answer.Answers);
             Assert.AreEqual(1, answer.Answers.Count);
@@ -113,7 +129,7 @@ namespace AAI
             bool question1 = answer.Answers[0].Questions[0].Contains("##REPLACE##") == false;
 
             // Bad text in question is removed.
-            answer = await service.Ask("HOW CAN I CHANGE MY SHIPPING ADDRESS", false);
+            answer = await service.Ask("HOW CAN I CHANGE MY SHIPPING ADDRESS", production);
             Assert.IsNotNull(answer);
             Assert.IsNotNull(answer.Answers);
             Assert.AreEqual(1, answer.Answers.Count);
@@ -127,15 +143,18 @@ namespace AAI
 #if (AddEnabled && AskEnabled)
 //
         // Add full text, will add additional questions to the first two entries.
-        private async Task<bool> AddFullText()
+        private async Task<bool> AddFullText(bool production)
         {
-            var (status, error) = await service.AddToQnA(QnAFile.LoadCSV("..\\..\\..\\..\\Data\\full-faq.csv"), false);
+            var (status, error) = await service.AddToQnA(QnAFile.LoadCSV("..\\..\\..\\..\\Data\\full-faq.csv"));
             Assert.AreEqual(OperationStateType.Succeeded, status);
             Assert.IsNull(error);
-
+            if (production)
+            {
+                await service.Publish();
+            }
             // Question has unwanted text in it. Check for the unwanted text. Also question should
             // only return 1 match. The other Answer added should never match this question.
-            QnASearchResultList answer = await service.Ask("What perks do I get for shopping with you", false);
+            QnASearchResultList answer = await service.Ask("What perks do I get for shopping with you", production);
             Assert.IsNotNull(answer);
             Assert.IsNotNull(answer.Answers);
             Assert.AreEqual(1, answer.Answers.Count);
@@ -146,17 +165,17 @@ namespace AAI
         }
 #endif
 #if (TrainingEnabled && AskEnabled)   
-        private async Task<bool> TrainQnA()
+        private async Task<bool> TrainQnA(bool production)
         {
             string sampleQuestion = "This present is for my mother, how do I get it to her?";
-            QnASearchResultList answer = await service.Ask(sampleQuestion, false);
+            QnASearchResultList answer = await service.Ask(sampleQuestion, production);
             Assert.IsNotNull(answer);
             Assert.IsNotNull(answer.Answers);
             Assert.IsNotNull(answer.Answers[0].Score);
             double score1 = answer.Answers[0].Score ?? 0.0;
             string answer1 = answer.Answers[0].Answer;
 
-            await service.Train(QnAFile.LoadCSV("..\\..\\..\\..\\Data\\training-faq.csv"), false);
+            await service.Train(QnAFile.LoadCSV("..\\..\\..\\..\\Data\\training-faq.csv"), production);
             answer = await service.Ask(sampleQuestion, false);
 
             Assert.IsNotNull(answer);
@@ -168,14 +187,6 @@ namespace AAI
             return (String.Compare(answer1, answer2) != 0) || (score2 > score1);
         }
 #endif
-#if (CleanupEnabled)
-        private async Task<bool> CleanUp()
-        {
-            await service.DeleteKnowledgeBase();
-            return true;
-        }
-#endif
-        
 #if (TestCreate)
         [TestMethod()]
         public void TestCreate()
@@ -199,9 +210,10 @@ namespace AAI
         {
             try
             {
+                bool production = false;
                 Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await AskQuestion()); }).Wait();
-            }   
+                Task.Run(async () => { Assert.IsTrue(await AskQuestion(production)); }).Wait();
+            }
             finally
             {
                 if (service.KnowledgeBaseID != null && service.KnowledgeBaseID.Length > 0)
@@ -209,17 +221,18 @@ namespace AAI
                     Task.Run(async () => { Assert.IsTrue(await CleanUp()); }).Wait();
                 }
             }
-        }     
+        }
 #endif
 #if (TestAdd)
         [TestMethod()]
-        public void TestCreate()
+        public void TestAdd()
         {
             try
             {
+                bool production = false;
                 Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await AskQuestion()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await AddQuestion()); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AskQuestion(production)); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AddQuestion(production)); }).Wait();
             }   
             finally
             {
@@ -232,14 +245,15 @@ namespace AAI
 #endif
 #if (TestUpdate)
         [TestMethod()]
-        public void TestCreate()
+        public void TestUpdate()
         {
             try
             {
+                bool production = false;
                 Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await AskQuestion()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await AddQuestion()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await UpdateQuestions()); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AskQuestion(production)); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AddQuestion(production)); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await UpdateQuestions(production)); }).Wait();
             }   
             finally
             {
@@ -256,11 +270,13 @@ namespace AAI
         {
             try
             {
+                bool production = true;
                 Task.Run(async () => { Assert.IsTrue(await CreateDatabase()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await AskQuestion()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await AddQuestion()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await UpdateQuestions()); }).Wait();
-                Task.Run(async () => { Assert.IsTrue(await AddFullText()); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await PublishDatabase());  }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AskQuestion(production)); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AddQuestion(production)); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await UpdateQuestions(production)); }).Wait();
+                Task.Run(async () => { Assert.IsTrue(await AddFullText(production)); }).Wait();
             }   
             finally
             {
