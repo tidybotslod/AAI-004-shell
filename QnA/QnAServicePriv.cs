@@ -57,17 +57,40 @@ namespace AAI
                 queryEndpointKey = null;
             }
         }
-        //======================================
-        // Methods to be used only by QnAService
+        /// <summary>
+        /// Download knowledge base creating dictionary where the lookup is the answer. There can be multiple questions per answer.
+        /// </summary>
+        /// <param name="published"></param>
+        /// <returns>dictionary of entire knowledge base</returns>
+        public async Task<Dictionary<string, QnADTO>> GetExistingAnswers(bool published)
+        {
+            QnADocumentsDTO kb = await AzureEndpoint().Knowledgebase.DownloadAsync(knowledgeBaseID, published ? EnvironmentType.Prod : EnvironmentType.Test);
+            Dictionary<string, QnADTO> existing = new Dictionary<string, QnADTO>();
+            foreach (QnADTO entry in kb.QnaDocuments)
+            {
+                existing.Add(entry.Answer, entry);
+            }
+            return existing;
+        }
+        /// <summary>
+        /// QnA endpoint is used to query and train knowledge base. 
+        /// </summary>
+        /// <returns>QnA endpoint object</returns>
+        public async Task<QnAMakerRuntimeClient> QnAEndpoint()
+        {
+            return qnaEndpoint ?? await CreateQnAEndpoint();
+        }
         /// <summary>
         /// Azure endpoint is used to create, publish, download, update, and delete QnA knowledge bases. Creates
         /// one using configured data. 
         /// </summary>
         /// <returns>azure endpoint object</returns>
-        private QnAMakerClient AzureEndpoint()
+        public QnAMakerClient AzureEndpoint()
         {
             return azureEndpoint ?? CreateConfiguredAzureEndpoint();
         }
+        //======================================
+        // Methods to be used only by QnAService
         /// <summary>
         /// Make alterations to the knowledge base, polls until the knowledge base has been updated.
         /// </summary>
@@ -86,21 +109,6 @@ namespace AAI
             var op = await AzureEndpoint().Knowledgebase.UpdateAsync(knowledgeBaseID, update);
             op = await MonitorOperation(op);
             return (op.OperationState, op.ErrorResponse == null ? null : op.ErrorResponse.ToString());
-        }
-        /// <summary>
-        /// Download knowledge base creating dictionary where the lookup is the answer. There can be multiple questions per answer.
-        /// </summary>
-        /// <param name="published"></param>
-        /// <returns>dictionary of entire knowledge base</returns>
-        private async Task<Dictionary<string, QnADTO>> GetExistingAnswers(bool published)
-        {
-            QnADocumentsDTO kb = await AzureEndpoint().Knowledgebase.DownloadAsync(knowledgeBaseID, published ? EnvironmentType.Prod : EnvironmentType.Test);
-            Dictionary<string, QnADTO> existing = new Dictionary<string, QnADTO>();
-            foreach (QnADTO entry in kb.QnaDocuments)
-            {
-                existing.Add(entry.Answer, entry);
-            }
-            return existing;
         }
         /// <summary>
         /// Moniter long running operations by polling the status of an operation occuring in Azure QnA service
@@ -125,14 +133,7 @@ namespace AAI
             }
             return operation;
         }
-        /// <summary>
-        /// QnA endpoint is used to query and train knowledge base. 
-        /// </summary>
-        /// <returns></returns>
-        private async Task<QnAMakerRuntimeClient> QnAEndpoint()
-        {
-            return qnaEndpoint ?? await CreateQnAEndpoint();
-        }
+
         //==================================================================
         // Helper methods targeted for QnAServicePriv only, not docuemented.
         private QnAMakerClient CreateConfiguredAzureEndpoint()
