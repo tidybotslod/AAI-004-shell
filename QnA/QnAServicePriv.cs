@@ -40,7 +40,7 @@ namespace AAI
             }
         }
         /// <summary>
-        /// Knowledge base id used for operations defined in QnAService.
+        /// Knowledge base id returned when the QnA knowledge base is created. Identifies knowledge base for operations defined in QnAService.
         /// </summary>
         /// <summary>
         /// 
@@ -88,6 +88,14 @@ namespace AAI
         public QnAMakerClient AzureEndpoint()
         {
             return azureEndpoint ?? CreateConfiguredAzureEndpoint();
+        }
+        /// <summary>
+        /// Returns the Query key required when accessing the QnA
+        /// </summary>
+        /// <returns>QnA Auth Key</returns>
+        public async Task<string> QueryKey()
+        {
+            return queryEndpointKey ?? await RetrieveEndpointKey();
         }
         //======================================
         // Methods to be used only by QnAService
@@ -150,10 +158,6 @@ namespace AAI
             string queryEndpoint = $"https://{config["ApplicationName"]}.azurewebsites.net";
             qnaEndpoint = new QnAMakerRuntimeClient(credentials) { RuntimeEndpoint = queryEndpoint };
             return qnaEndpoint;
-        }
-        private async Task<string> QueryKey()
-        {
-            return queryEndpointKey ?? await RetrieveEndpointKey();
         }
         private async Task<string> RetrieveEndpointKey()
         {
