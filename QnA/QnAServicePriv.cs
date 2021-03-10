@@ -13,12 +13,12 @@ namespace AAI
         //
         // Data members
         //
-        private IConfiguration config;                // Values found in appsettings.json
-        private QnAMakerClient azureEndpoint;         // Access to qna service endpoint in azure (see azure portal)
-        private QnAMakerRuntimeClient qnaEndpoint;    // Access to qna maker service endpoint (see www.qnamaker.ai)
-        private string knowledgeBaseID;               // Current knowledge base being accessed
-        private string queryEndpointKey;              // Authorization key used to access qna maker service
-        //
+        public string AuthoringKey { get; set; }
+        public string ResourceName { get; set; }
+        public string ApplicationName { get; set; }
+        public string KnowledgeBaseID { get; set; }
+        public string QueryEndpointKey { get; set; }
+
         // Provided methods
         //
         /// <summary>
@@ -27,23 +27,22 @@ namespace AAI
         /// </summary>
         public QnAService()
         {
-            config = new ConfigurationBuilder().AddJsonFile("appsettings.json", optional: false, reloadOnChange: true).Build();
-            queryEndpointKey = config["QueryEndpointKey"];
-            if (queryEndpointKey != null && queryEndpointKey.Length == 0)
-            {
-                queryEndpointKey = null;
-            }
-            knowledgeBaseID = config["KnowledgeBaseID"];
-            if (knowledgeBaseID != null && knowledgeBaseID.Length == 0)
-            {
-                knowledgeBaseID = null;
-            }
+
+        }
+
+        public QnAService(string authoringKey, string resourceName, string applicationName, string knowledgeBaseID, string queryEndpointKey)
+        {
+            AuthoringKey = authoringKey;
+            ResourceName = resourceName;
+            ApplicationName = applicationName;
+            KnowledgeBaseID = knowledgeBaseID;
+            QueryEndpointKey = queryEndpointKey;
         }
         /// <summary>
         /// Knowledge base id returned when the QnA knowledge base is created. Identifies knowledge base for operations defined in QnAService.
         /// </summary>
         /// <summary>
-        /// 
+        ///
         /// </summary>
         public string KnowledgeBaseID
         {
@@ -73,7 +72,7 @@ namespace AAI
             return existing;
         }
         /// <summary>
-        /// QnA endpoint is used to query and train knowledge base. 
+        /// QnA endpoint is used to query and train knowledge base.
         /// </summary>
         /// <returns>QnA endpoint object</returns>
         public async Task<QnAMakerRuntimeClient> QnAEndpoint()
@@ -82,7 +81,7 @@ namespace AAI
         }
         /// <summary>
         /// Azure endpoint is used to create, publish, download, update, and delete QnA knowledge bases. Creates
-        /// one using configured data. 
+        /// one using configured data.
         /// </summary>
         /// <returns>azure endpoint object</returns>
         public QnAMakerClient AzureEndpoint()
