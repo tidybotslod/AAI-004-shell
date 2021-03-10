@@ -15,6 +15,7 @@
 #endif
 
 using System;
+using Microsoft.Extensions.Configuration;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Microsoft.Azure.CognitiveServices.Knowledge.QnAMaker.Models;
